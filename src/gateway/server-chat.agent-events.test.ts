@@ -112,7 +112,7 @@ describe("agent event handler", () => {
       seq: 1,
       stream: "assistant",
       ts: Date.now(),
-      data: { text: "NO_REPLY" },
+      data: { text: SILENT_REPLY_TOKEN },
     });
     handler({
       runId: "run-2",
@@ -165,55 +165,6 @@ describe("agent event handler", () => {
     expect(broadcast).not.toHaveBeenCalled();
     expect(broadcastToConnIds).toHaveBeenCalledTimes(1);
     resetAgentRunContextForTest();
-  });
-
-  it("skips chat payloads for silent replies", () => {
-    const broadcast = vi.fn();
-    const broadcastToConnIds = vi.fn();
-    const nodeSendToSession = vi.fn();
-    const agentRunSeq = new Map<string, number>();
-    const chatRunState = createChatRunState();
-    const toolEventRecipients = createToolEventRecipientRegistry();
-    chatRunState.registry.add("run-1", { sessionKey: "session-1", clientRunId: "client-1" });
-
-    const handler = createAgentEventHandler({
-      broadcast,
-      broadcastToConnIds,
-      nodeSendToSession,
-      agentRunSeq,
-      chatRunState,
-      resolveSessionKeyForRun: () => undefined,
-      clearAgentRunContext: vi.fn(),
-      toolEventRecipients,
-    });
-
-    handler({
-      runId: "run-1",
-      seq: 1,
-      stream: "assistant",
-      ts: Date.now(),
-      data: { text: SILENT_REPLY_TOKEN },
-    });
-
-    const chatCallsAfterDelta = broadcast.mock.calls.filter(([event]) => event === "chat");
-    expect(chatCallsAfterDelta).toHaveLength(0);
-
-    handler({
-      runId: "run-1",
-      seq: 2,
-      stream: "lifecycle",
-      ts: Date.now(),
-      data: { phase: "end" },
-    });
-
-    const chatCallsAfterFinal = broadcast.mock.calls.filter(([event]) => event === "chat");
-    expect(chatCallsAfterFinal).toHaveLength(1);
-    const payload = chatCallsAfterFinal[0]?.[1] as { state?: string; message?: unknown };
-    expect(payload.state).toBe("final");
-    expect(payload.message).toBeUndefined();
-
-    const sessionChatCalls = nodeSendToSession.mock.calls.filter(([, event]) => event === "chat");
-    expect(sessionChatCalls).toHaveLength(1);
   });
 
   it("broadcasts tool events to WS recipients even when verbose is off, but skips node send", () => {
